@@ -8,6 +8,26 @@
 import SwiftUI
 import Firebase
 import FirebaseAuth
+import FirebaseStorage
+import FirebaseFirestoreInternal
+
+class FirebaseManager : NSObject {
+    
+    let auth : Auth
+    let storage : Storage
+    let fireStore : Firestore
+
+    
+    static let shared  = FirebaseManager()
+    
+    override init() {
+        FirebaseApp.configure()
+        self.auth = Auth.auth()
+        self.storage = Storage.storage()
+        self.fireStore = Firestore.firestore()
+        super.init()
+    }
+}
 
 struct LogInView: View {
     @State var isLogInMode = false
@@ -17,9 +37,7 @@ struct LogInView: View {
     @State var logInStatusMessage = ""
     @State var image : UIImage?
     
-    init() {
-        FirebaseApp.configure()
-    }
+
     
     var body: some View {
     
@@ -110,7 +128,7 @@ struct LogInView: View {
     }
     
     private func logInUser() {
-        Auth.auth().signIn(withEmail: email, password: password) { result, err in
+        FirebaseManager.shared.auth.signIn(withEmail: email, password: password) { result, err in
             if let error = err {
                 debugPrint("Failed to logIn User\(error.localizedDescription)")
                 self.logInStatusMessage = "Failed to LogIn User\(error.localizedDescription)"
@@ -124,7 +142,7 @@ struct LogInView: View {
     }
     
     private func createNewAccount() {
-        Auth.auth().createUser(withEmail: email, password: password) { result, err in
+        FirebaseManager.shared.auth.createUser(withEmail: email, password: password) { result, err in
             if let error = err {
                 debugPrint("Failed to Create User\(error.localizedDescription)")
                 self.logInStatusMessage = "Failed to Create User\(error.localizedDescription)"
@@ -132,9 +150,52 @@ struct LogInView: View {
             }
             debugPrint("Successfully Created User\(result?.user.uid ?? "")")
             self.logInStatusMessage = "Successfully Created User\(result?.user.uid ?? "")"
-            email = ""
-            password = ""
+          
+            
+          //  self.persistImageToStorage()
+            saveUsersInformation()
         }
+    }
+    
+    
+    private func persistImageToStorage() {
+        guard let uid = FirebaseManager.shared.auth.currentUser?.uid else { return }
+        let ref = FirebaseManager.shared.storage.reference(withPath: uid)
+        guard let imageData = self.image?.jpegData(compressionQuality: 0.5) else { return }
+        ref.putData(imageData, metadata: nil) { metadata, err in
+            if let err = err {
+                self.logInStatusMessage  = "Failed to push image to Storage: \(err)"
+                return
+            }
+            
+            ref.downloadURL { url, err in
+                if let err = err {
+                    self.logInStatusMessage = "Failed to retrieve downloadURL: \(err)"
+                    return
+                }
+                
+                self.logInStatusMessage = "Successfully stored image with url: \(url?.absoluteString ?? "")"
+                print(url?.absoluteString)
+             //   guard let newUrl = url  else { return }
+             //   saveUsersInformation(url: newUrl)
+            }
+        }
+    }
+    
+    private func saveUsersInformation() {
+        guard let uid = FirebaseManager.shared.auth.currentUser?.uid else {return}
+        let userData = ["emailID" : email , "uuid" : uid]
+        FirebaseManager.shared.fireStore.collection("User")
+            .document(uid).setData(userData) { err in
+                if let error = err {
+                    print(error)
+                    self.logInStatusMessage = "\(error)"
+                    return
+                }
+                print("Success")
+                email = ""
+                password = ""
+            }
     }
 }
 
