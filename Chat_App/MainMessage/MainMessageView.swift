@@ -6,10 +6,52 @@
 //
 
 import SwiftUI
+class MainMessageViewModel : ObservableObject {
+    
+    @Published var errorMessage = ""
+    
+    init() {
+        fetchCurrentUser()
+    }
+    
+  private func  fetchCurrentUser() {
+    
+      guard let uuid = FirebaseManager.shared.auth.currentUser?.uid else
+      {return}
+      errorMessage = "\(uuid)"
+      FirebaseManager.shared.fireStore.collection("User").document(uuid).getDocument { shapShot, error in
+          if let error = error {
+              debugPrint("Failed to fetch Current user data")
+          }else {
+              guard let data = shapShot?.data() else {return}
+          }
+      }
+    }
+}
 
 struct MainMessageView: View {
     
     @State var shouldShowLogOutOptions = false
+    
+    @ObservedObject private var vm = MainMessageViewModel()
+    
+    var body: some View {
+        NavigationView{
+            VStack{
+                Text("The Current User ID \(vm.errorMessage)")
+                //custnm nav
+            customNavBar
+            messageView
+                
+            }
+           
+        }.overlay(alignment: .bottom, content: {
+         newMessageButton
+        })
+        .navigationBarHidden(true)
+            
+
+    }
     
     private var customNavBar: some View {
         HStack(spacing: 16){
@@ -49,48 +91,37 @@ struct MainMessageView: View {
             }
     }
     
-    var body: some View {
-        NavigationView{
-            VStack{
-                //custnm nav
-            customNavBar
-                
-                ScrollView{
-                    ForEach (0..<15, id: \.self) { num in
-                        VStack{
-                            HStack(spacing: 16){
-                                Image(systemName: "person.fill")
-                                    .font(.system(size: 32))
-                                    .padding(8)
-                                    .overlay(RoundedRectangle(cornerRadius: 44)
-                                        .stroke(Color(.label), lineWidth:1)
-                                    )
-                                
-                                VStack(alignment: .leading){
-                                    Text("Username")
-                                        .font(.system(size: 16,weight: .semibold))
-                                    Text("Message Sent to User")
-                                        .font(.system(size:14))
-                                        .foregroundStyle(Color(.lightGray))
-                                }
-                                Spacer()
-                                Text("22d")
-                                    .font(.system(size: 14,weight: .semibold))
-                            }
-                            Divider()
-                                .padding(.vertical,8)
-                        }.padding(.horizontal)
-                    }
-                }.padding(.bottom,50)
-            }
-           
-        }.overlay(alignment: .bottom, content: {
-         newMessageButton
-        })
-        .navigationBarHidden(true)
-            
+ 
+}
 
-    }
+private var messageView  :some View {
+    ScrollView{
+        ForEach (0..<15, id: \.self) { num in
+            VStack{
+                HStack(spacing: 16){
+                    Image(systemName: "person.fill")
+                        .font(.system(size: 32))
+                        .padding(8)
+                        .overlay(RoundedRectangle(cornerRadius: 44)
+                            .stroke(Color(.label), lineWidth:1)
+                        )
+                    
+                    VStack(alignment: .leading){
+                        Text("Username")
+                            .font(.system(size: 16,weight: .semibold))
+                        Text("Message Sent to User")
+                            .font(.system(size:14))
+                            .foregroundStyle(Color(.lightGray))
+                    }
+                    Spacer()
+                    Text("22d")
+                        .font(.system(size: 14,weight: .semibold))
+                }
+                Divider()
+                    .padding(.vertical,8)
+            }.padding(.horizontal)
+        }
+    }.padding(.bottom,50)
 }
 
 private var newMessageButton : some View {
