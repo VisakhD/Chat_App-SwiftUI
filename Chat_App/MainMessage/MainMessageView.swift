@@ -6,9 +6,15 @@
 //
 
 import SwiftUI
+
+struct ChatUser : Codable {
+    var uid,email : String
+}
+
 class MainMessageViewModel : ObservableObject {
     
     @Published var errorMessage = ""
+    @Published var chatUser : ChatUser?
     
     init() {
         fetchCurrentUser()
@@ -18,13 +24,20 @@ class MainMessageViewModel : ObservableObject {
     
       guard let uuid = FirebaseManager.shared.auth.currentUser?.uid else
       {return}
-      errorMessage = "\(uuid)"
+      
       FirebaseManager.shared.fireStore.collection("User").document(uuid).getDocument { shapShot, error in
           if let error = error {
-              debugPrint("Failed to fetch Current user data")
-          }else {
-              guard let data = shapShot?.data() else {return}
+              debugPrint("Failed to fetch Current user data \(error)")
           }
+              
+          guard let data = shapShot?.data()  else {
+                  return}
+          
+          
+          let uid = data["uuid"] as? String ?? ""
+          let email = data["emailID"] as? String ?? ""
+          self.chatUser = ChatUser(uid: uid, email: email)
+          
       }
     }
 }
@@ -38,7 +51,6 @@ struct MainMessageView: View {
     var body: some View {
         NavigationView{
             VStack{
-                Text("The Current User ID \(vm.errorMessage)")
                 //custnm nav
             customNavBar
             messageView
@@ -58,9 +70,9 @@ struct MainMessageView: View {
             
             Image(systemName: "person.fill")
                 .font(.system(size: 34,weight: .heavy))
-            
+            let email = vm.chatUser?.email.replacingOccurrences(of: "@gmail.com", with: "") ?? ""
             VStack(alignment:.leading,spacing: 4){
-                Text("USERNAME")
+                Text(email)
                     .font(.system(size: 24,weight: .bold))
                 HStack{
                     Circle()
